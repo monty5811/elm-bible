@@ -1,10 +1,10 @@
 module TestBible exposing (suite)
 
 import Array
-import Bible exposing (Book(..), Reference(Reference), format, fromString, numChapters, numVerses)
+import Bible exposing (Book(..), Reference(..), bookToString, format, fromString, numChapters, numVerses)
 import Expect exposing (Expectation)
 import Fuzz exposing (Fuzzer)
-import Random.Pcg as Random
+import Random
 import Shrink
 import Test exposing (..)
 
@@ -33,24 +33,24 @@ suite =
 
 
 fuzzBook book =
-    fuzz (ref book) ("Fuzz " ++ Basics.toString book) t2
+    fuzz (ref book) ("Fuzz " ++ bookToString book) t2
 
 
 t1 : Reference -> () -> Expectation
-t1 ref _ =
-    t2 ref
+t1 reference _ =
+    t2 reference
 
 
 t2 : Reference -> Expectation
-t2 ref =
-    ref
+t2 reference =
+    reference
         |> format
         |> Bible.fromString
         |> List.map Result.toMaybe
         |> List.filterMap identity
         |> List.head
         |> Maybe.withDefault (Reference Genesis -1 -1 -1 -1)
-        |> Expect.equal ref
+        |> Expect.equal reference
 
 
 testRoundTrip : String -> Test
@@ -79,7 +79,7 @@ testStringToRef str refs =
     test str <| \() -> Expect.equal (List.map Ok refs) (Bible.fromString str)
 
 
-genRefTup : Book -> Random.Generator ( Book, Int, Int, Int, Int )
+genRefTup : Book -> Random.Generator { book : Book, startChapter : Int, startVerse : Int, endChapter : Int, endVerse : Int }
 genRefTup book =
     Random.int 1 (numChapters book)
         |> Random.andThen (s1 book)
@@ -87,29 +87,30 @@ genRefTup book =
         |> Random.andThen s3
 
 
-s1 : Book -> Int -> Random.Generator ( Book, Int, Int )
-s1 book sc =
-    Random.map (\i -> ( book, sc, i )) (Random.int 1 (numVerses book sc))
+s1 : Book -> Int -> Random.Generator { book : Book, startChapter : Int, startVerse : Int }
+s1 book startChapter =
+    Random.map (\i -> { book = book, startChapter = startChapter, startVerse = i }) (Random.int 1 (numVerses book startChapter))
 
 
-s2 : ( Book, Int, Int ) -> Random.Generator ( Book, Int, Int, Int )
-s2 ( book, sc, sv ) =
-    Random.map (\i -> ( book, sc, sv, i )) (Random.int sc (numChapters book))
+s2 : { book : Book, startChapter : Int, startVerse : Int } -> Random.Generator { book : Book, startChapter : Int, startVerse : Int, endChapter : Int }
+s2 { book, startChapter, startVerse } =
+    Random.map (\i -> { book = book, startChapter = startChapter, startVerse = startVerse, endChapter = i }) (Random.int startChapter (numChapters book))
 
 
-s3 : ( Book, Int, Int, Int ) -> Random.Generator ( Book, Int, Int, Int, Int )
-s3 ( book, sc, sv, ec ) =
-    if sc == ec then
-        Random.map (\i -> ( book, sc, sv, ec, i )) (Random.int sv (numVerses book sc))
+s3 : { book : Book, startChapter : Int, startVerse : Int, endChapter : Int } -> Random.Generator { book : Book, startChapter : Int, startVerse : Int, endChapter : Int, endVerse : Int }
+s3 { book, startChapter, startVerse, endChapter } =
+    if startChapter == endChapter then
+        Random.map (\i -> { book = book, startChapter = startChapter, startVerse = startVerse, endChapter = endChapter, endVerse = i }) (Random.int startVerse (numVerses book startChapter))
+
     else
-        Random.map (\i -> ( book, sc, sv, ec, i )) (Random.int 1 (numVerses book ec))
+        Random.map (\i -> { book = book, startChapter = startChapter, startVerse = startVerse, endChapter = endChapter, endVerse = i }) (Random.int 1 (numVerses book endChapter))
 
 
 ref : Book -> Fuzzer Reference
-ref book =
+ref inputBook =
     let
         generator =
-            Random.map (\( book, sc, sv, ec, ev ) -> Reference book sc sv ec ev) (genRefTup book)
+            Random.map (\{ book, startChapter, startVerse, endChapter, endVerse } -> Reference book startChapter startVerse endChapter endVerse) (genRefTup inputBook)
 
         shrinker (Reference book sc sv ec ev) =
             Shrink.noShrink <| Reference book sc sv ec ev

@@ -1,13 +1,8 @@
-module Bible
-    exposing
-        ( Book(..)
-        , Reference(Reference)
-        , format
-        , fromString
-        , numChapters
-        , numVerses
-        , reference
-        )
+module Bible exposing
+    ( format, fromString
+    , reference, numChapters, numVerses, bookToString
+    , Reference(..), Book(..)
+    )
 
 {-| A library for working with Bible references.
 
@@ -16,7 +11,7 @@ module Bible
 
 # Helpers
 
-@docs reference, numChapters, numVerses
+@docs reference, numChapters, numVerses, bookToString
 
 
 # Types
@@ -40,9 +35,9 @@ type Reference
 
 {-| Nicely formatted `Reference`.
 
-    format (Reference Genesis 1 1 1 1 ) --> "Genesis 1:1"
+    format (Reference Genesis 1 1 1 1) --> "Genesis 1:1"
 
-    format (Reference Genesis 1 1 11 5 ) --> "Genesis 1:1-11:5"
+    format (Reference Genesis 1 1 11 5) --> "Genesis 1:1-11:5"
 
 -}
 format : Reference -> String
@@ -54,11 +49,12 @@ format ref =
 
     fromString "Gen 1:1" --> [ Ok <| Reference Genesis 1 1 1 1]
 
-    fromString "Gen 1:1, Exodus 1, Luke 10:16, Acts 28:100" -->
-        [Ok <| Reference Genesis 1 1 1 1
-        ,Ok <| Reference Exodus 1 1 1 22
-        ,Ok <| Reference  Luke 10 16 10 16
-        ,Err "Invalid end verse"
+    fromString "Gen 1:1, Exodus 1, Luke 10:16, Acts 28:100"
+        -->
+        [ Ok <| Reference Genesis 1 1 1 1
+        , Ok <| Reference Exodus 1 1 1 22
+        , Ok <| Reference Luke 10 16 10 16
+        , Err "Invalid end verse"
         ]
 
 -}
@@ -114,21 +110,25 @@ formatHelp (Reference book startChapter startVerse endChapter endVerse) =
     in
     if numChapters book == 1 then
         renderSingleChapterBook book startVerse endVerse
+
     else if startChapter == endChapter then
         if startVerse == endVerse then
-            base ++ toString startChapter ++ ":" ++ toString startVerse
+            base ++ String.fromInt startChapter ++ ":" ++ String.fromInt startVerse
+
         else
-            base ++ toString startChapter ++ ":" ++ toString startVerse ++ "-" ++ toString endVerse
+            base ++ String.fromInt startChapter ++ ":" ++ String.fromInt startVerse ++ "-" ++ String.fromInt endVerse
+
     else
-        base ++ toString startChapter ++ ":" ++ toString startVerse ++ "-" ++ toString endChapter ++ ":" ++ toString endVerse
+        base ++ String.fromInt startChapter ++ ":" ++ String.fromInt startVerse ++ "-" ++ String.fromInt endChapter ++ ":" ++ String.fromInt endVerse
 
 
 renderSingleChapterBook : Book -> Int -> Int -> String
 renderSingleChapterBook book sv ev =
     if sv == ev then
-        bookToString book ++ " " ++ toString sv
+        bookToString book ++ " " ++ String.fromInt sv
+
     else
-        bookToString book ++ " " ++ toString sv ++ "-" ++ toString ev
+        bookToString book ++ " " ++ String.fromInt sv ++ "-" ++ String.fromInt ev
 
 
 matchToRef : Regex.Match -> Result String Reference
@@ -140,7 +140,7 @@ submatchesToRef : List (Maybe String) -> Result String Reference
 submatchesToRef ls =
     case ls of
         [ Just book, startChap, startVerse, endChap, endVerse ] ->
-            parseMatches ( book, startChap, startVerse, endChap, endVerse )
+            parseMatches book startChap startVerse endChap endVerse
                 |> processRef
 
         _ ->
@@ -166,6 +166,7 @@ processRef raw =
         Just book ->
             if numChapters book == 1 then
                 processRefSingleChapBookHelp raw book
+
             else
                 processRefHelp raw book
 
@@ -204,6 +205,7 @@ processRefHelp raw book =
                                         if ec /= raw.startChap then
                                             -- use end of end chapter
                                             Ok <| Reference book raw.startChap sv ec (numVerses book ec)
+
                                         else
                                             -- use start verse
                                             Ok <| Reference book raw.startChap sv ec sv
@@ -212,21 +214,25 @@ processRefHelp raw book =
                                         if verseInBounds book ec ev then
                                             -- end verse valid, everthing should be valid by now:
                                             Ok <| Reference book raw.startChap sv ec ev
+
                                         else
                                             Err "End verse invalid"
+
                             else
                                 Err "End chapter invalid"
+
                 else
                     Err "Start verse invalid"
 
             Nothing ->
                 Ok <| Reference book raw.startChap 1 raw.startChap (numVerses book raw.startChap)
+
     else
         Err "Start chapter invalid"
 
 
-parseMatches : ( String, Maybe String, Maybe String, Maybe String, Maybe String ) -> RawRef
-parseMatches ( book, startChap, startVerse, endChap, endVerse ) =
+parseMatches : String -> Maybe String -> Maybe String -> Maybe String -> Maybe String -> RawRef
+parseMatches book startChap startVerse endChap endVerse =
     { book = (bookFromString >> Result.toMaybe) book
     , startChap = maybeStringToMaybeInt startChap |> Maybe.withDefault -1
     , startVerse = maybeStringToMaybeInt startVerse
@@ -252,14 +258,14 @@ maybeStringToMaybeInt str =
             Nothing
 
         Just s ->
-            String.toInt s |> Result.toMaybe
+            String.toInt s
 
 
 {-| Parse a string into a `List Reference`
 -}
 fromStringHelp : String -> List (Result String Reference)
 fromStringHelp str =
-    Regex.find Regex.All bibleRe str
+    Regex.find bibleRe str
         |> List.map matchToRef
 
 
@@ -344,9 +350,13 @@ bookFromString str =
 matchBook : String -> ( Book, String ) -> Maybe Book
 matchBook str2match ( book, reStr ) =
     let
+        re =
+            Regex.fromStringWith { caseInsensitive = True, multiline = False } reStr
+                |> Maybe.withDefault Regex.never
+
         matches =
             str2match
-                |> Regex.find (Regex.AtMost 1) (Regex.caseInsensitive <| Regex.regex reStr)
+                |> Regex.find re
                 |> List.head
     in
     case matches of
@@ -357,6 +367,8 @@ matchBook str2match ( book, reStr ) =
             Just book
 
 
+{-| Render a book as a string
+-}
 bookToString : Book -> String
 bookToString book =
     case book of
@@ -417,8 +429,146 @@ bookToString book =
         John_3 ->
             "3 John"
 
-        _ ->
-            toString book
+        Genesis ->
+            "Genesis"
+
+        Exodus ->
+            "Exodus"
+
+        Leviticus ->
+            "Leviticus"
+
+        Numbers ->
+            "Numbers"
+
+        Deuteronomy ->
+            "Deuteronomy"
+
+        Joshua ->
+            "Joshua"
+
+        Judges ->
+            "Judges"
+
+        Ruth ->
+            "Ruth"
+
+        Ezra ->
+            "Ezra"
+
+        Nehemiah ->
+            "Nehemiah"
+
+        Esther ->
+            "Esther"
+
+        Job ->
+            "Job"
+
+        Proverbs ->
+            "Proverbs"
+
+        Ecclesiastes ->
+            "Ecclesiastes"
+
+        Isaiah ->
+            "Isaiah"
+
+        Jeremiah ->
+            "Jeremiah"
+
+        Lamentations ->
+            "Lamentations"
+
+        Ezekiel ->
+            "Ezekiel"
+
+        Daniel ->
+            "Daniel"
+
+        Hosea ->
+            "Hosea"
+
+        Joel ->
+            "Joel"
+
+        Amos ->
+            "Amos"
+
+        Obadiah ->
+            "Obadiah"
+
+        Jonah ->
+            "Jonah"
+
+        Micah ->
+            "Micah"
+
+        Nahum ->
+            "Nahum"
+
+        Habakkuk ->
+            "Habakkuk"
+
+        Zephaniah ->
+            "Zephaniah"
+
+        Haggai ->
+            "Haggai"
+
+        Zechariah ->
+            "Zechariah"
+
+        Malachi ->
+            "Malachi"
+
+        Matthew ->
+            "Matthew"
+
+        Mark ->
+            "Mark"
+
+        Luke ->
+            "Luke"
+
+        John ->
+            "John"
+
+        Acts ->
+            "Acts"
+
+        Romans ->
+            "Romans"
+
+        Galatians ->
+            "Galatians"
+
+        Ephesians ->
+            "Ephesians"
+
+        Philippians ->
+            "Philippians"
+
+        Colossians ->
+            "Colossians"
+
+        Titus ->
+            "Titus"
+
+        Philemon ->
+            "Philemon"
+
+        Hebrews ->
+            "Hebrews"
+
+        James ->
+            "James"
+
+        Jude ->
+            "Jude"
+
+        Revelation ->
+            "Revelation"
 
 
 {-|
@@ -437,8 +587,8 @@ bibleRe =
         ++ bookRe
         ++ ")\\s*"
         ++ "(\\d{1,3})(?:\\s*:\\s*(\\d{1,3}))?(?:\\s*[-–—]\\s*(\\d{1,3}(?=\\s*:\\s*))?(?:\\s*:\\s*)?(\\d{1,3})?)?"
-        |> Regex.regex
-        |> Regex.caseInsensitive
+        |> Regex.fromStringWith { caseInsensitive = True, multiline = False }
+        |> Maybe.withDefault Regex.never
 
 
 bookRe : String
