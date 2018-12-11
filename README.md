@@ -4,27 +4,39 @@
 
 Parse and format Bible references in Elm.
 
-Inspired by [python-scriptures](https://github.com/davisd/python-scriptures).
+## Features
+
+- Parse a reference from a string
+- Nicely format a reference to a string
+- Convert a reference to an encoded representation for sorting/comparing/storage
+
+The following reference formats can be parsed:
+
+ - Genesis 1
+ - Genesis 1:1
+ - Genesis 1:1-20
+ - Genesis 1:20-2:24
+ - Genesis 1-5
+ - Genesis 1 - Exodus 5
+ - Genesis 1:1 - Exodus 5:20
+ - Genesis 1:1 - Exodus 5
+ - Genesis 1 - Exodus 5:20
 
 ## Examples
 
 ```elm
 
--- parsing
+(fromString "Gen 1:1" |> Result.map format)
+     == Ok "Genesis 1:1" 
 
-(fromString "Gen 1:1") == [ Ok <| Reference Genesis 1 1 1 1]
+(fromString "Gen 1:1 - Rev 5") |> Result.map format)
+    == Ok "Genesis 1:1 - Revelation 5:14" 
 
-(fromString "Gen 1:1, Exodus 1, Luke 10:16, Acts 28:100")
-    ==
-    [ Ok <| Reference Genesis 1 1 1 1
-    , Ok <| Reference Exodus 1 1 1 22
-    , Ok <| Reference Luke 10 16 10 16
-    , Err "Invalid end verse"
-    ]
+(fromString "Gen 1:1 - Rev 5") |> Result.map encode) 
+    == Ok {start = 1001001, end = 66005014}
 
--- formatting
-
-(format (Reference Genesis 1 1 1 1)) == "Genesis 1:1"
-
-(format (Reference Genesis 1 1 11 5)) == "Genesis 1:1-11:5"
 ```
+
+## Contributing
+
+Contributions welcome, please [open an issue](https://github.com/monty5811/elm-bible/issues/new) to get started.
