@@ -6,6 +6,8 @@ import Internal.Bible as Internal
 import Internal.Book as Book exposing (Book(..), books)
 import Internal.Parser as P
 import Internal.Reference exposing (Reference)
+import Random
+import Shrink
 import Test exposing (..)
 
 
@@ -122,36 +124,105 @@ testRefRoundTrip name ref_ =
 -- Fuzzing
 
 
-fuzzRoundTrip : Result String Reference -> Expect.Expectation
-fuzzRoundTrip res =
-    case res of
-        Err _ ->
-            Expect.pass
-
-        -- let an invalid reference pass as it is a fuzzing issue, not a test issue
-        Ok ref_ ->
-            Expect.all
-                [ \r -> Expect.equal (Ok r) (r |> Internal.format |> Internal.fromString)
-                , \r -> Expect.equal (Ok r) (r |> Internal.encode |> Internal.decode)
-                ]
-                ref_
+fuzzRoundTrip : Reference -> Expect.Expectation
+fuzzRoundTrip ref_ =
+    Expect.all
+        [ \r -> Expect.equal (Ok r) (r |> Internal.format |> Internal.fromString)
+        , \r -> Expect.equal (Ok r) (r |> Internal.encode |> Internal.decode)
+        ]
+        ref_
 
 
-{-| This is a very inefficient fuzzer as it won't generate a valid reference most of the time.
-If we had `Fuzz.andThen` it would be much easier to limit the chapter once a book is chosen, and so on.
+fuzzRef : Fuzz.Fuzzer Reference
+fuzzRef =
+    Fuzz.custom genRef shrinkRef
 
-(<https://github.com/elm-explorations/test/issues/17>)
+
+{-| Random generator that will always produce a valid reference:
+
+End Book must come after start book.
+End chapter must come after start chapter if the start and end books are the same.
+End verse must come after start verse if the chapters and books are the same.
 
 -}
-fuzzRef : Fuzz.Fuzzer (Result String Reference)
-fuzzRef =
-    Fuzz.map ref fuzzBook
-        |> Fuzz.andMap fuzzChapter
-        |> Fuzz.andMap fuzzVerse
-        |> Fuzz.andMap fuzzBook
-        |> Fuzz.andMap fuzzChapter
-        |> Fuzz.andMap fuzzVerse
-        |> Fuzz.map P.validateRef
+genRef : Random.Generator Reference
+genRef =
+    Random.int 1 66
+        |> Random.andThen
+            (\startBookInt ->
+                let
+                    startBook =
+                        Result.withDefault Genesis <| Book.fromInt startBookInt
+                in
+                Random.constant (Book.numChapters startBook)
+                    |> Random.andThen
+                        (\startChapterMax ->
+                            Random.int 1 startChapterMax
+                                |> Random.andThen
+                                    (\startChapter ->
+                                        Random.constant (Book.numVerses startBook startChapter)
+                                            |> Random.andThen
+                                                (\startVerseMax ->
+                                                    Random.int 1 startVerseMax
+                                                        |> Random.andThen
+                                                            (\startVerse ->
+                                                                Random.int startBookInt 66
+                                                                    |> Random.andThen
+                                                                        (\endBookInt ->
+                                                                            let
+                                                                                endBook =
+                                                                                    Result.withDefault Revelation <| Book.fromInt endBookInt
+                                                                            in
+                                                                            Random.constant (Book.numChapters endBook)
+                                                                                |> Random.andThen
+                                                                                    (\endChapterMax ->
+                                                                                        let
+                                                                                            endChapterMin =
+                                                                                                if startBook == endBook then
+                                                                                                    startChapter
+
+                                                                                                else
+                                                                                                    1
+                                                                                        in
+                                                                                        Random.int endChapterMin endChapterMax
+                                                                                            |> Random.andThen
+                                                                                                (\endChapter ->
+                                                                                                    Random.constant (Book.numVerses endBook endChapter)
+                                                                                                        |> Random.andThen
+                                                                                                            (\endVerseMax ->
+                                                                                                                let
+                                                                                                                    endVerseMin =
+                                                                                                                        if (startBook == endBook) && (startChapter == endChapter) then
+                                                                                                                            startVerse
+
+                                                                                                                        else
+                                                                                                                            1
+                                                                                                                in
+                                                                                                                Random.int endVerseMin endVerseMax
+                                                                                                                    |> Random.andThen
+                                                                                                                        (\endVerse ->
+                                                                                                                            Random.constant <|
+                                                                                                                                Reference startBook startChapter startVerse endBook endChapter endVerse
+                                                                                                                        )
+                                                                                                            )
+                                                                                                )
+                                                                                    )
+                                                                        )
+                                                            )
+                                                )
+                                    )
+                        )
+            )
+
+
+shrinkRef : Shrink.Shrinker Reference
+shrinkRef { startBook, startChapter, startVerse, endBook, endChapter, endVerse } =
+    Shrink.map Reference (Shrink.noShrink startBook)
+        |> Shrink.andMap (Shrink.int startChapter)
+        |> Shrink.andMap (Shrink.int startVerse)
+        |> Shrink.andMap (Shrink.noShrink endBook)
+        |> Shrink.andMap (Shrink.int endChapter)
+        |> Shrink.andMap (Shrink.int endVerse)
 
 
 fuzzBook : Fuzz.Fuzzer Book

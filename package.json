@@ -10,7 +10,7 @@
   "scripts": {
     "watch": "find . -name '*.elm' | entr -c elm make src/Bible.elm --output /dev/null",
     "watch-test": "find . -name '*.elm' | entr -c elm-test --fuzz 1000",
-    "test": "elm-test --fuzz 1000000",
+    "test": "elm-test --fuzz 100000",
     "docs": "find . -name '*.elm' | entr -c elm make --docs=docs.json"
   }
 }
