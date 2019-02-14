@@ -44,6 +44,9 @@ suite =
             , testStringToRef "3 John 2 - Revelation 1" <| ref John_3 1 2 Revelation 1 20
             , testStringToRef "3 John 2 - Revelation 1:1" <| ref John_3 1 2 Revelation 1 1
             , testStringToRef "3 John - Revelation 1" <| ref John_3 1 1 Revelation 1 20
+            , testStringToRef "Judges 5" <| ref Judges 5 1 Judges 5 31
+            , testStringToRef "John 18" <| ref John 18 1 John 18 40
+            , testStringToRef "Gen 50" <| ref Genesis 50 1 Genesis 50 26
             ]
         , describe "Parseable, but invalid"
             [ testStringToErr "Genesis 52" "Genesis only has 50 chapters"

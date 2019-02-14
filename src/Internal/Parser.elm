@@ -66,7 +66,7 @@ processStatementsHelp stmts =
                     1
                     bk
                     ch
-                    (numVerses bk 1)
+                    (numVerses bk ch)
 
         -- Gen 1:5
         [ BookName bk, Num ch, Colon, Num vs ] ->
@@ -363,10 +363,10 @@ bookTokens =
 validateRef : Reference -> Result String Reference
 validateRef ref =
     validateBookOrder ref
-        |> Result.andThen validateChapterOrder
-        |> Result.andThen validateVerseOrder
         |> Result.andThen validateChapterBounds
+        |> Result.andThen validateChapterOrder
         |> Result.andThen validateVerseBounds
+        |> Result.andThen validateVerseOrder
 
 
 validateBookOrder : Reference -> Result String Reference
