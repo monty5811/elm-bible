@@ -48,6 +48,10 @@ suite =
             , testStringToRef "John 18" <| ref John 18 1 John 18 40
             , testStringToRef "Gen 50" <| ref Genesis 50 1 Genesis 50 26
             ]
+        , describe "From String with dashes"
+            [ testStringToRef "Rev 20:1—5" <| ref Revelation 20 1 Revelation 20 5
+            , testStringToRef "Genesis 1 – Exodus 5" <| ref Genesis 1 1 Exodus 5 23
+            ]
         , describe "Parseable, but invalid"
             [ testStringToErr "Genesis 52" "Genesis only has 50 chapters"
             , testStringToErr "Genesis 1:32" "Genesis 1 only has 31 verses"

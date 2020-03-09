@@ -8,7 +8,7 @@ import Test exposing (..)
 suite : Test
 suite =
     describe "Check Bible data"
-        [ describe "Check chapter numbers is same lenght as verses list" <| List.map testChapterNum books
+        [ describe "Check chapter numbers is same length as verses list" <| List.map testChapterNum books
         , test "Check book order" <| \() -> bookOrder
         ]
 

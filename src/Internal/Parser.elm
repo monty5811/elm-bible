@@ -264,7 +264,7 @@ statement : P.Parser Statement
 statement =
     P.oneOf
         [ P.map BookName (P.oneOf bookTokensList)
-        , P.map (\_ -> Dash) (P.symbol "-")
+        , P.map (\_ -> Dash) (P.oneOf [ P.symbol "-", P.symbol "—", P.symbol "–" ])
         , P.map (\_ -> Colon) (P.symbol ":")
         , P.map Num P.int
         ]
