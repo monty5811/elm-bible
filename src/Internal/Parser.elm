@@ -1,4 +1,4 @@
-module Internal.Parser exposing (parse, validateRef)
+module Internal.Parser exposing (aliases, parse, validateRef)
 
 import Internal.Book as Book exposing (Book(..), numChapters, numVerses)
 import Internal.Reference exposing (Reference)
@@ -9,11 +9,36 @@ import Parser as P exposing ((|.), (|=))
 -- Parse
 
 
+{-| Parse a reference. Case and whitespace don't matter: the input is
+lowercased and every run of whitespace (tabs, non-breaking spaces...) becomes a
+single space before parsing.
+-}
 parse : String -> Result String Reference
 parse str =
-    P.run parser str
-        |> Result.mapError P.deadEndsToString
+    P.run parser (normalize str)
+        |> Result.mapError deadEndsToString
         |> Result.andThen processStatements
+
+
+normalize : String -> String
+normalize =
+    String.toLower >> String.words >> String.join " "
+
+
+deadEndsToString : List P.DeadEnd -> String
+deadEndsToString deadEnds =
+    deadEnds
+        |> List.filterMap
+            (\{ problem } ->
+                case problem of
+                    P.Problem message ->
+                        Just message
+
+                    _ ->
+                        Nothing
+            )
+        |> List.head
+        |> Maybe.withDefault "Could not understand the reference"
 
 
 type Statement
@@ -248,13 +273,16 @@ parser =
     P.loop [] statementsHelp
 
 
+{-| Reads statements until it meets something that isn't one. Anything after
+that is ignored. No statement consumes input before failing, so stopping
+early is never a parse error.
+-}
 statementsHelp : List Statement -> P.Parser (P.Step (List Statement) (List Statement))
 statementsHelp revStmts =
     P.oneOf
         [ P.succeed (\stmt -> P.Loop (stmt :: revStmts))
-            |. P.spaces
             |= statement
-            |. P.spaces
+            |. P.chompWhile ((==) ' ')
         , P.succeed ()
             |> P.map (\_ -> P.Done (List.reverse revStmts))
         ]
@@ -263,11 +291,32 @@ statementsHelp revStmts =
 statement : P.Parser Statement
 statement =
     P.oneOf
-        [ P.map BookName (P.oneOf bookTokensList)
+        [ P.succeed BookName
+            |= pBook
+            |. P.oneOf [ P.symbol ".", P.succeed () ]
         , P.map (\_ -> Dash) (P.oneOf [ P.symbol "-", P.symbol "—", P.symbol "–" ])
         , P.map (\_ -> Colon) (P.symbol ":")
-        , P.map Num P.int
+        , P.map Num number
         ]
+
+
+{-| A run of digits. Leading zeros are fine (`05` is 5). A `.` between two
+numbers is rejected rather than ignored, so `John 3.16` is an error instead
+of quietly becoming John 3.
+-}
+number : P.Parser Int
+number =
+    P.getChompedString (P.chompIf Char.isDigit |. P.chompWhile Char.isDigit)
+        |> P.andThen
+            (\digits ->
+                P.oneOf
+                    [ P.succeed ()
+                        |. P.backtrackable (P.symbol ".")
+                        |. P.chompIf Char.isDigit
+                        |> P.andThen (\_ -> P.problem "Use a colon between chapter and verse, as in John 3:16")
+                    , P.succeed (String.toInt digits |> Maybe.withDefault 0)
+                    ]
+            )
 
 
 pBook : P.Parser Book
@@ -275,85 +324,158 @@ pBook =
     P.oneOf bookTokensList
 
 
+{-| Every alias, longest first, so that `song of songs` is tried before
+`song`. An alias only matches if no letter follows it: `psalms` isn't read
+as `psalm` plus `s`, but `genesis1` is still Genesis 1.
+-}
 bookTokensList : List (P.Parser Book)
 bookTokensList =
-    List.concatMap tokensToParsers bookTokens
+    aliases
+        |> List.sortBy (\( token, _ ) -> negate (String.length token))
+        |> List.map
+            (\( token, book ) ->
+                P.backtrackable
+                    (P.succeed book
+                        |. P.token token
+                        |. notFollowedByLetter
+                    )
+            )
 
 
-tokensToParsers : ( Book, List String ) -> List (P.Parser Book)
-tokensToParsers ( book, tokens ) =
-    List.map (\t -> P.map (\_ -> book) (P.token t)) tokens
+notFollowedByLetter : P.Parser ()
+notFollowedByLetter =
+    P.succeed (\offset source -> String.slice offset (offset + 2) source)
+        |= P.getOffset
+        |= P.getSource
+        |> P.andThen
+            (\next ->
+                case String.uncons next of
+                    Just ( c, _ ) ->
+                        if isLetter c then
+                            P.problem "not a book name"
+
+                        else
+                            P.succeed ()
+
+                    Nothing ->
+                        P.succeed ()
+            )
+
+
+isLetter : Char -> Bool
+isLetter c =
+    Char.isAlpha c || Char.toLower c /= Char.toUpper c
+
+
+{-| Every alias with its book. The aliases must be lowercase, with single
+spaces.
+-}
+aliases : List ( String, Book )
+aliases =
+    List.concatMap (\( book, tokens ) -> List.map (\t -> ( t, book )) tokens) bookTokens
 
 
 bookTokens : List ( Book, List String )
 bookTokens =
-    [ ( Genesis, [ "genesis", "gen" ] )
-    , ( Exodus, [ "exodus", "exod" ] )
-    , ( Leviticus, [ "leviticus", "lev" ] )
-    , ( Numbers, [ "numbers", "num" ] )
-    , ( Deuteronomy, [ "deuteronomy", "deut" ] )
-    , ( Joshua, [ "joshua", "josh" ] )
-    , ( Judges, [ "judges", "judg" ] )
-    , ( Ruth, [ "ruth" ] )
-    , ( Samuel_1, [ "1 samuel", "i samuel", "1 sam", "i sam", "1sam" ] )
-    , ( Samuel_2, [ "2 samuel", "ii samuel", "2 sam", "ii sam", "2sam" ] )
-    , ( Kings_1, [ "1 kings", "i kings", "1 kgs", "i kgs", "1kings" ] )
-    , ( Kings_2, [ "2 kings", "ii kings", "2 kgs", "ii kgs", "2kings" ] )
-    , ( Chronicles_1, [ "1 chronicles", "i chronicles", "1 chr", "i chr", "1chr" ] )
-    , ( Chronicles_2, [ "2 chronicles", "ii chronicles", "2 chr", "ii chr", "2chr" ] )
-    , ( Ezra, [ "ezra" ] )
-    , ( Nehemiah, [ "nehemiah", "neh" ] )
-    , ( Esther, [ "esther", "esth" ] )
-    , ( Job, [ "job" ] )
-    , ( Psalms, [ "psalm", "ps" ] )
-    , ( Proverbs, [ "proverbs", "prov" ] )
-    , ( Ecclesiastes, [ "ecclesiastes", "eccl", "ecc" ] )
-    , ( Song_of_Solomon, [ "song of solomon", "song of songs", "song" ] )
-    , ( Isaiah, [ "isaiah", "isa" ] )
-    , ( Jeremiah, [ "jeremiah", "jer" ] )
-    , ( Lamentations, [ "lamentations", "lam" ] )
-    , ( Ezekiel, [ "ezekiel", "ezek" ] )
-    , ( Daniel, [ "daniel", "dan" ] )
-    , ( Hosea, [ "hosea", "hos" ] )
-    , ( Joel, [ "joel" ] )
-    , ( Amos, [ "amos" ] )
-    , ( Obadiah, [ "obadiah", "obad" ] )
-    , ( Jonah, [ "jonah" ] )
-    , ( Micah, [ "micah", "mic" ] )
-    , ( Nahum, [ "nahum", "nah" ] )
-    , ( Habakkuk, [ "habakkuk", "hab" ] )
-    , ( Zephaniah, [ "zephaniah", "zeph" ] )
-    , ( Haggai, [ "haggai", "hag" ] )
-    , ( Zechariah, [ "zechariah", "zech" ] )
-    , ( Malachi, [ "malachi", "mal" ] )
-    , ( Matthew, [ "matthew", "matt" ] )
-    , ( Mark, [ "mark" ] )
-    , ( Luke, [ "luke" ] )
-    , ( Acts, [ "acts" ] )
-    , ( Romans, [ "romans", "rom" ] )
-    , ( Corinthians_1, [ "1 corinthians", "i corinthians", "1 cor", "i cor", "1cor" ] )
-    , ( Corinthians_2, [ "2 corinthians", "ii corinthians", "2 cor", "ii cor", "2cor" ] )
-    , ( Galatians, [ "galatians", "gal" ] )
-    , ( Ephesians, [ "ephesians", "eph" ] )
+    [ ( Genesis, [ "genesis", "gen", "ge", "gn" ] )
+    , ( Exodus, [ "exodus", "exod", "exo", "ex" ] )
+    , ( Leviticus, [ "leviticus", "lev", "le", "lv" ] )
+    , ( Numbers, [ "numbers", "num", "nu", "nm", "nb" ] )
+    , ( Deuteronomy, [ "deuteronomy", "deut", "dt", "de" ] )
+    , ( Joshua, [ "joshua", "josh", "jos", "jsh" ] )
+    , ( Judges, [ "judges", "judg", "jdgs", "jdg", "jg" ] )
+    , ( Ruth, [ "ruth", "rth", "ru" ] )
+    , ( Samuel_1, numbered 1 [ "samuel", "sam", "sa", "sm" ] )
+    , ( Samuel_2, numbered 2 [ "samuel", "sam", "sa", "sm" ] )
+    , ( Kings_1, numbered 1 [ "kings", "kgs", "kg", "ki" ] )
+    , ( Kings_2, numbered 2 [ "kings", "kgs", "kg", "ki" ] )
+    , ( Chronicles_1, numbered 1 [ "chronicles", "chron", "chr", "ch" ] )
+    , ( Chronicles_2, numbered 2 [ "chronicles", "chron", "chr", "ch" ] )
+    , ( Ezra, [ "ezra", "ezr" ] )
+    , ( Nehemiah, [ "nehemiah", "neh", "ne" ] )
+    , ( Esther, [ "esther", "esth", "est", "es" ] )
+    , ( Job, [ "job", "jb" ] )
+    , ( Psalms, [ "psalms", "psalm", "pslm", "psm", "pss", "psa", "ps" ] )
+    , ( Proverbs, [ "proverbs", "prov", "prv", "pro", "pr" ] )
+    , ( Ecclesiastes, [ "ecclesiastes", "eccles", "eccl", "ecc", "ec", "qoheleth", "qoh" ] )
+    , ( Song_of_Solomon, [ "song of solomon", "song of songs", "song of sol", "song", "sos", "canticles", "cant" ] )
+    , ( Isaiah, [ "isaiah", "isa", "is" ] )
+    , ( Jeremiah, [ "jeremiah", "jer", "je", "jr" ] )
+    , ( Lamentations, [ "lamentations", "lam", "la" ] )
+    , ( Ezekiel, [ "ezekiel", "ezek", "eze", "ezk" ] )
+    , ( Daniel, [ "daniel", "dan", "da", "dn" ] )
+    , ( Hosea, [ "hosea", "hos", "ho" ] )
+    , ( Joel, [ "joel", "jl" ] )
+    , ( Amos, [ "amos", "am" ] )
+    , ( Obadiah, [ "obadiah", "obad", "ob" ] )
+    , ( Jonah, [ "jonah", "jnh", "jon" ] )
+    , ( Micah, [ "micah", "mic", "mc" ] )
+    , ( Nahum, [ "nahum", "nah", "na" ] )
+    , ( Habakkuk, [ "habakkuk", "hab", "hb" ] )
+    , ( Zephaniah, [ "zephaniah", "zeph", "zep", "zp" ] )
+    , ( Haggai, [ "haggai", "hag", "hg" ] )
+    , ( Zechariah, [ "zechariah", "zech", "zec", "zc" ] )
+    , ( Malachi, [ "malachi", "mal", "ml" ] )
+    , ( Matthew, [ "matthew", "matt", "mat", "mt" ] )
+    , ( Mark, [ "mark", "mrk", "mk", "mr" ] )
+    , ( Luke, [ "luke", "luk", "lk" ] )
+    , ( John, [ "john", "jhn", "joh", "jn" ] )
+    , ( Acts, [ "acts", "act", "ac" ] )
+    , ( Romans, [ "romans", "rom", "ro", "rm" ] )
+    , ( Corinthians_1, numbered 1 [ "corinthians", "cor", "co" ] )
+    , ( Corinthians_2, numbered 2 [ "corinthians", "cor", "co" ] )
+    , ( Galatians, [ "galatians", "gal", "ga" ] )
+    , ( Ephesians, [ "ephesians", "ephes", "eph" ] )
+    , ( Philippians, [ "philippians", "phil", "php", "pp" ] )
     , ( Colossians, [ "colossians", "col" ] )
-    , ( Thessalonians_1, [ "1 thessalonians", "i thessalonians", "1 thess", "i thess", "1thess" ] )
-    , ( Thessalonians_2, [ "2 thessalonians", "ii thessalonians", "2 thess", "ii thess", "2thess" ] )
-    , ( Timothy_1, [ "1 timothy", "i timothy", "1 tim", "i tim", "1tim" ] )
-    , ( Timothy_2, [ "2 timothy", "ii timothy", "2 tim", "ii tim", "2tim" ] )
+    , ( Thessalonians_1, numbered 1 [ "thessalonians", "thess", "thes", "th" ] )
+    , ( Thessalonians_2, numbered 2 [ "thessalonians", "thess", "thes", "th" ] )
+    , ( Timothy_1, numbered 1 [ "timothy", "tim", "tm", "ti" ] )
+    , ( Timothy_2, numbered 2 [ "timothy", "tim", "tm", "ti" ] )
     , ( Titus, [ "titus", "tit" ] )
-    , ( Philemon, [ "philemon", "phlm" ] )
+    , ( Philemon, [ "philemon", "philem", "phlm", "phm", "pm" ] )
     , ( Hebrews, [ "hebrews", "heb" ] )
-    , ( James, [ "james", "jas" ] )
-    , ( Peter_1, [ "1 peter", "i peter", "1 pet", "i pet", "1pet" ] )
-    , ( Peter_2, [ "2 peter", "ii peter", "2 pet", "ii pet", "2pet" ] )
-    , ( John_1, [ "1 john", "i john" ] )
-    , ( John_2, [ "2 john", "ii john" ] )
-    , ( John_3, [ "3 john", "iii john" ] )
-    , ( Jude, [ "jude" ] )
-    , ( Revelation, [ "revelation", "rev" ] )
-    , ( John, [ "john" ] )
-    , ( Philippians, [ "philippians", "phil" ] )
+    , ( James, [ "james", "jas", "jm" ] )
+    , ( Peter_1, numbered 1 [ "peter", "pet", "pe", "pt" ] )
+    , ( Peter_2, numbered 2 [ "peter", "pet", "pe", "pt" ] )
+    , ( John_1, numbered 1 [ "john", "jhn", "joh", "jn" ] )
+    , ( John_2, numbered 2 [ "john", "jhn", "joh", "jn" ] )
+    , ( John_3, numbered 3 [ "john", "jhn", "joh", "jn" ] )
+    , ( Jude, [ "jude", "jud", "jd" ] )
+    , ( Revelation, [ "revelation", "revelations", "rev", "re", "rv" ] )
     ]
+
+
+{-| `numbered 1 [ "sam" ]` is `1 sam`, `1sam`, `i sam`, `1st sam` and
+`first sam`.
+-}
+numbered : Int -> List String -> List String
+numbered n names =
+    let
+        ( roman, ordinal, word ) =
+            case n of
+                1 ->
+                    ( "i", "1st", "first" )
+
+                2 ->
+                    ( "ii", "2nd", "second" )
+
+                _ ->
+                    ( "iii", "3rd", "third" )
+
+        digit =
+            String.fromInt n
+    in
+    List.concatMap
+        (\name ->
+            [ digit ++ " " ++ name
+            , digit ++ name
+            , roman ++ " " ++ name
+            , ordinal ++ " " ++ name
+            , word ++ " " ++ name
+            ]
+        )
+        names
 
 
 
@@ -398,11 +520,14 @@ validateVerseOrder ({ startBook, startChapter, endBook, endChapter, startVerse, 
 
 validateChapterBounds : Reference -> Result String Reference
 validateChapterBounds ({ startBook, startChapter, endChapter, endBook } as ref) =
-    if numChapters startBook < startChapter then
-        Err <| Book.toString startBook ++ " only has " ++ String.fromInt (numChapters startBook) ++ " chapters"
+    if startChapter < 1 || endChapter < 1 then
+        Err "Chapter numbers start at 1"
+
+    else if numChapters startBook < startChapter then
+        Err <| Book.toString startBook ++ " only has " ++ count (numChapters startBook) "chapter"
 
     else if numChapters endBook < endChapter then
-        Err <| Book.toString endBook ++ " only has " ++ String.fromInt (numChapters endBook) ++ " chapters"
+        Err <| Book.toString endBook ++ " only has " ++ count (numChapters endBook) "chapter"
 
     else
         Ok ref
@@ -410,20 +535,32 @@ validateChapterBounds ({ startBook, startChapter, endChapter, endBook } as ref) 
 
 validateVerseBounds : Reference -> Result String Reference
 validateVerseBounds ({ startBook, startChapter, startVerse, endBook, endChapter, endVerse } as ref) =
-    if numVerses startBook startChapter < startVerse then
-        Err <| validateVerseBoundsMsg startBook startChapter startVerse
+    if startVerse < 1 || endVerse < 1 then
+        Err "Verse numbers start at 1"
+
+    else if numVerses startBook startChapter < startVerse then
+        Err <| validateVerseBoundsMsg startBook startChapter
 
     else if numVerses endBook endChapter < endVerse then
-        Err <| validateVerseBoundsMsg endBook endChapter endVerse
+        Err <| validateVerseBoundsMsg endBook endChapter
 
     else
         Ok ref
 
 
-validateVerseBoundsMsg : Book -> Int -> Int -> String
-validateVerseBoundsMsg book chapter verse =
+validateVerseBoundsMsg : Book -> Int -> String
+validateVerseBoundsMsg book chapter =
     if numChapters book == 1 then
-        Book.toString book ++ " only has " ++ String.fromInt (numVerses book chapter) ++ " verses"
+        Book.toString book ++ " only has " ++ count (numVerses book chapter) "verse"
 
     else
-        Book.toString book ++ " " ++ String.fromInt chapter ++ " only has " ++ String.fromInt (numVerses book chapter) ++ " verses"
+        Book.toString book ++ " " ++ String.fromInt chapter ++ " only has " ++ count (numVerses book chapter) "verse"
+
+
+count : Int -> String -> String
+count n noun =
+    if n == 1 then
+        "1 " ++ noun
+
+    else
+        String.fromInt n ++ " " ++ noun ++ "s"

@@ -178,8 +178,8 @@ singleBookMultiChapter =
 {-| Parse a string into a `Reference`
 -}
 fromString : String -> Result String Reference
-fromString str =
-    parse <| String.toLower str
+fromString =
+    parse
 
 
 
@@ -223,8 +223,20 @@ decodeHelp start end =
             Err "Invalid book number"
 
 
+{-| Anything outside Genesis to Revelation is rejected before the arithmetic,
+which would otherwise wrap large values round to a real book.
+-}
 decodeHelpInt : Int -> Result String ( Book, Int, Int )
 decodeHelpInt num =
+    if num < 1000000 || num > 66999999 then
+        Err "Invalid book number"
+
+    else
+        decodeInRange num
+
+
+decodeInRange : Int -> Result String ( Book, Int, Int )
+decodeInRange num =
     let
         bookResult =
             num
@@ -240,7 +252,7 @@ decodeHelpInt num =
                 |> remainderBy 1000
     in
     case bookResult of
-        Err err ->
+        Err _ ->
             Err "Invalid book number"
 
         Ok book ->

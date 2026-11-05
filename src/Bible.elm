@@ -85,6 +85,19 @@ The following formats should work:
   - Genesis 1:1 - Exodus 5
   - Genesis 1 - Exodus 5:20
 
+Book names can be written in full or abbreviated, in any case, with or without
+a trailing dot: `Psalm 23`, `Psalms 23`, `Ps. 23`, `1 Cor 13`, `I Cor 13`,
+`First Corinthians 13`, `Jn 3:16`. Any whitespace works between the parts, and
+`-`, `–` and `—` all work as dashes.
+
+Text after the reference is ignored, so `John 3:16 (ESV)` is John 3:16.
+
+    (fromString "Ps. 23" |> Result.map format)
+        == Ok "Psalm 23:1-6"
+
+    (fromString "Gen 0" |> Result.map format)
+        == Err "Chapter numbers start at 1"
+
 -}
 fromString : String -> Result String Reference
 fromString str =
@@ -126,6 +139,10 @@ encode (Reference ref) =
 
 
 {-| Attempt to convert an encoded value to a reference.
+
+Fails if either value is outside Genesis 1:1 to Revelation 22:21, or the
+reference isn't valid.
+
 -}
 decode : { start : Int, end : Int } -> Result String Reference
 decode ref =
