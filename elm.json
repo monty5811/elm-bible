@@ -3,7 +3,7 @@
     "name": "monty5811/elm-bible",
     "summary": "Parse Bible References.",
     "license": "MIT",
-    "version": "2.0.2",
+    "version": "2.1.0",
     "exposed-modules": [
         "Bible",
         "Bible.Book"
