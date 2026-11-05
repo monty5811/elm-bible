@@ -119,7 +119,9 @@ suite =
             , fails "Jude 0" "Verse numbers start at 1"
             ]
         , describe "Validation messages"
-            [ fails "Ps 151" "Psalm only has 150 chapters"
+            [ fails "Ps 151" "There are only 150 Psalms"
+            , fails "Ps 23 - Ps 151" "There are only 150 Psalms"
+            , fails "Ps 151:1" "There are only 150 Psalms"
             , fails "Rev 22:21 - Gen 1" "End book must come after start book"
             , fails "Rev 22:22" "Revelation 22 only has 21 verses"
             , fails "Gen 2-1" "End chapter must come after start chapter"

@@ -524,13 +524,22 @@ validateChapterBounds ({ startBook, startChapter, endChapter, endBook } as ref) 
         Err "Chapter numbers start at 1"
 
     else if numChapters startBook < startChapter then
-        Err <| Book.toString startBook ++ " only has " ++ count (numChapters startBook) "chapter"
+        Err <| chapterBoundsMsg startBook
 
     else if numChapters endBook < endChapter then
-        Err <| Book.toString endBook ++ " only has " ++ count (numChapters endBook) "chapter"
+        Err <| chapterBoundsMsg endBook
 
     else
         Ok ref
+
+
+chapterBoundsMsg : Book -> String
+chapterBoundsMsg book =
+    if book == Psalms then
+        "There are only " ++ String.fromInt (numChapters book) ++ " Psalms"
+
+    else
+        Book.toString book ++ " only has " ++ count (numChapters book) "chapter"
 
 
 validateVerseBounds : Reference -> Result String Reference
