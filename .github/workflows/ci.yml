@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: yarn
+
+      - name: Cache Elm tools and packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.elm
+          key: elm-${{ hashFiles('elm-tooling.json', 'elm.json') }}
+
+      - run: yarn install --frozen-lockfile
+
+      - name: elm-format
+        run: npx elm-format --validate src tests
+
+      - name: Docs
+        run: npx elm make --docs=docs.json
+
+      - name: Tests
+        run: npx elm-test --fuzz 10000
+
+      - name: API diff against the latest published version
+        run: |
+          npx elm diff | tee elm-diff.txt
+          { echo '### elm diff'; echo '```'; cat elm-diff.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

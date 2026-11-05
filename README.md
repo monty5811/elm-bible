@@ -1,6 +1,6 @@
 # elm-bible
 
-[![Build Status](https://semaphoreci.com/api/v1/monty5811/elm-bible/branches/master/badge.svg)](https://semaphoreci.com/monty5811/elm-bible)
+[![CI](https://github.com/monty5811/elm-bible/actions/workflows/ci.yml/badge.svg)](https://github.com/monty5811/elm-bible/actions/workflows/ci.yml)
 
 Parse and format Bible references in Elm.
 
@@ -40,3 +40,11 @@ The following reference formats can be parsed:
 ## Contributing
 
 Contributions welcome, please [open an issue](https://github.com/monty5811/elm-bible/issues/new) to get started.
+
+```sh
+yarn install          # installs elm and elm-format (pinned in elm-tooling.json)
+yarn test             # elm-test
+yarn format:check     # elm-format --validate
+yarn docs             # elm make --docs=docs.json
+yarn diff             # elm diff against the latest published version
+```
