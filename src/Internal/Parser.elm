@@ -369,6 +369,11 @@ isLetter c =
 
 {-| Every alias with its book. The aliases must be lowercase, with single
 spaces.
+
+`bookTokens` is written out as plain strings, with no helper generating
+them, so that other tools can read the table from the source and a diff
+shows every spelling that changes.
+
 -}
 aliases : List ( String, Book )
 aliases =
@@ -385,12 +390,12 @@ bookTokens =
     , ( Joshua, [ "joshua", "josh", "jos", "jsh" ] )
     , ( Judges, [ "judges", "judg", "jdgs", "jdg" ] )
     , ( Ruth, [ "ruth", "rth" ] )
-    , ( Samuel_1, numbered 1 [ "samuel", "sam" ] )
-    , ( Samuel_2, numbered 2 [ "samuel", "sam" ] )
-    , ( Kings_1, numbered 1 [ "kings", "kgs" ] )
-    , ( Kings_2, numbered 2 [ "kings", "kgs" ] )
-    , ( Chronicles_1, numbered 1 [ "chronicles", "chron", "chr" ] )
-    , ( Chronicles_2, numbered 2 [ "chronicles", "chron", "chr" ] )
+    , ( Samuel_1, [ "1 samuel", "1samuel", "i samuel", "1st samuel", "first samuel", "1 sam", "1sam", "i sam", "1st sam", "first sam" ] )
+    , ( Samuel_2, [ "2 samuel", "2samuel", "ii samuel", "2nd samuel", "second samuel", "2 sam", "2sam", "ii sam", "2nd sam", "second sam" ] )
+    , ( Kings_1, [ "1 kings", "1kings", "i kings", "1st kings", "first kings", "1 kgs", "1kgs", "i kgs", "1st kgs", "first kgs" ] )
+    , ( Kings_2, [ "2 kings", "2kings", "ii kings", "2nd kings", "second kings", "2 kgs", "2kgs", "ii kgs", "2nd kgs", "second kgs" ] )
+    , ( Chronicles_1, [ "1 chronicles", "1chronicles", "i chronicles", "1st chronicles", "first chronicles", "1 chron", "1chron", "i chron", "1st chron", "first chron", "1 chr", "1chr", "i chr", "1st chr", "first chr" ] )
+    , ( Chronicles_2, [ "2 chronicles", "2chronicles", "ii chronicles", "2nd chronicles", "second chronicles", "2 chron", "2chron", "ii chron", "2nd chron", "second chron", "2 chr", "2chr", "ii chr", "2nd chr", "second chr" ] )
     , ( Ezra, [ "ezra", "ezr" ] )
     , ( Nehemiah, [ "nehemiah", "neh" ] )
     , ( Esther, [ "esther", "esth", "est" ] )
@@ -422,60 +427,28 @@ bookTokens =
     , ( John, [ "john", "jhn", "joh" ] )
     , ( Acts, [ "acts", "act" ] )
     , ( Romans, [ "romans", "rom" ] )
-    , ( Corinthians_1, numbered 1 [ "corinthians", "cor" ] )
-    , ( Corinthians_2, numbered 2 [ "corinthians", "cor" ] )
+    , ( Corinthians_1, [ "1 corinthians", "1corinthians", "i corinthians", "1st corinthians", "first corinthians", "1 cor", "1cor", "i cor", "1st cor", "first cor" ] )
+    , ( Corinthians_2, [ "2 corinthians", "2corinthians", "ii corinthians", "2nd corinthians", "second corinthians", "2 cor", "2cor", "ii cor", "2nd cor", "second cor" ] )
     , ( Galatians, [ "galatians", "gal" ] )
     , ( Ephesians, [ "ephesians", "ephes", "eph" ] )
     , ( Philippians, [ "philippians", "phil", "php" ] )
     , ( Colossians, [ "colossians", "col" ] )
-    , ( Thessalonians_1, numbered 1 [ "thessalonians", "thess", "thes" ] )
-    , ( Thessalonians_2, numbered 2 [ "thessalonians", "thess", "thes" ] )
-    , ( Timothy_1, numbered 1 [ "timothy", "tim" ] )
-    , ( Timothy_2, numbered 2 [ "timothy", "tim" ] )
+    , ( Thessalonians_1, [ "1 thessalonians", "1thessalonians", "i thessalonians", "1st thessalonians", "first thessalonians", "1 thess", "1thess", "i thess", "1st thess", "first thess", "1 thes", "1thes", "i thes", "1st thes", "first thes" ] )
+    , ( Thessalonians_2, [ "2 thessalonians", "2thessalonians", "ii thessalonians", "2nd thessalonians", "second thessalonians", "2 thess", "2thess", "ii thess", "2nd thess", "second thess", "2 thes", "2thes", "ii thes", "2nd thes", "second thes" ] )
+    , ( Timothy_1, [ "1 timothy", "1timothy", "i timothy", "1st timothy", "first timothy", "1 tim", "1tim", "i tim", "1st tim", "first tim" ] )
+    , ( Timothy_2, [ "2 timothy", "2timothy", "ii timothy", "2nd timothy", "second timothy", "2 tim", "2tim", "ii tim", "2nd tim", "second tim" ] )
     , ( Titus, [ "titus", "tit" ] )
     , ( Philemon, [ "philemon", "philem", "phlm", "phm" ] )
     , ( Hebrews, [ "hebrews", "heb" ] )
     , ( James, [ "james", "jas" ] )
-    , ( Peter_1, numbered 1 [ "peter", "pet" ] )
-    , ( Peter_2, numbered 2 [ "peter", "pet" ] )
-    , ( John_1, numbered 1 [ "john", "jhn", "joh" ] )
-    , ( John_2, numbered 2 [ "john", "jhn", "joh" ] )
-    , ( John_3, numbered 3 [ "john", "jhn", "joh" ] )
+    , ( Peter_1, [ "1 peter", "1peter", "i peter", "1st peter", "first peter", "1 pet", "1pet", "i pet", "1st pet", "first pet" ] )
+    , ( Peter_2, [ "2 peter", "2peter", "ii peter", "2nd peter", "second peter", "2 pet", "2pet", "ii pet", "2nd pet", "second pet" ] )
+    , ( John_1, [ "1 john", "1john", "i john", "1st john", "first john", "1 jhn", "1jhn", "i jhn", "1st jhn", "first jhn", "1 joh", "1joh", "i joh", "1st joh", "first joh" ] )
+    , ( John_2, [ "2 john", "2john", "ii john", "2nd john", "second john", "2 jhn", "2jhn", "ii jhn", "2nd jhn", "second jhn", "2 joh", "2joh", "ii joh", "2nd joh", "second joh" ] )
+    , ( John_3, [ "3 john", "3john", "iii john", "3rd john", "third john", "3 jhn", "3jhn", "iii jhn", "3rd jhn", "third jhn", "3 joh", "3joh", "iii joh", "3rd joh", "third joh" ] )
     , ( Jude, [ "jude", "jud" ] )
     , ( Revelation, [ "revelation", "revelations", "rev" ] )
     ]
-
-
-{-| `numbered 1 [ "sam" ]` is `1 sam`, `1sam`, `i sam`, `1st sam` and
-`first sam`.
--}
-numbered : Int -> List String -> List String
-numbered n names =
-    let
-        ( roman, ordinal, word ) =
-            case n of
-                1 ->
-                    ( "i", "1st", "first" )
-
-                2 ->
-                    ( "ii", "2nd", "second" )
-
-                _ ->
-                    ( "iii", "3rd", "third" )
-
-        digit =
-            String.fromInt n
-    in
-    List.concatMap
-        (\name ->
-            [ digit ++ " " ++ name
-            , digit ++ name
-            , roman ++ " " ++ name
-            , ordinal ++ " " ++ name
-            , word ++ " " ++ name
-            ]
-        )
-        names
 
 
 
