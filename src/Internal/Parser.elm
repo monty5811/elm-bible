@@ -327,6 +327,10 @@ pBook =
 {-| Every alias, longest first, so that `song of songs` is tried before
 `song`. An alias only matches if no letter follows it: `psalms` isn't read
 as `psalm` plus `s`, but `genesis1` is still Genesis 1.
+
+This is a top-level value, so the sorting and the parsers are built once,
+when the program starts, not on every parse.
+
 -}
 bookTokensList : List (P.Parser Book)
 bookTokensList =
