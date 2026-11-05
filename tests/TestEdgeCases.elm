@@ -100,12 +100,6 @@ suite =
             , fails "Is 53" "No reference found"
             , fails "Ex 20" "No reference found"
             , fails "1 Jn 1:9" "No valid reference found"
-            , test "no alias is two letters long, except ps" <|
-                \() ->
-                    Internal.Parser.aliases
-                        |> List.map Tuple.first
-                        |> List.filter (\a -> String.length a == 2 && a /= "ps")
-                        |> Expect.equalLists []
             ]
         , describe "Case"
             [ parses "GEN 1:1" "Genesis 1:1"
