@@ -2,6 +2,7 @@ module Bible exposing
     ( fromString
     , format
     , encode, decode
+    , toStartBook, toEndBook
     , toStartBookString, toEndBookString, toStartChapter, toEndChapter, toStartVerse, toEndVerse
     , Reference
     )
@@ -46,7 +47,9 @@ This results in an `Int` with the following structure
 # Lower Level Parts
 
 These functions may be useful if you want to build your own formatter, or something else.
+[`Bible.Book`](Bible-Book) has the names, numbers and sizes of the books.
 
+@docs toStartBook, toEndBook
 @docs toStartBookString, toEndBookString, toStartChapter, toEndChapter, toStartVerse, toEndVerse
 
 
@@ -56,6 +59,7 @@ These functions may be useful if you want to build your own formatter, or someth
 
 -}
 
+import Bible.Book
 import Internal.Bible as Internal
 import Internal.Book as Book
 import Internal.Reference
@@ -151,6 +155,20 @@ decode ref =
 
 
 -- Parts
+
+
+{-| Get the book the reference starts with.
+-}
+toStartBook : Reference -> Bible.Book.Book
+toStartBook (Reference { startBook }) =
+    startBook
+
+
+{-| Get the book the reference ends with.
+-}
+toEndBook : Reference -> Bible.Book.Book
+toEndBook (Reference { endBook }) =
+    endBook
 
 
 {-| Get the name of the book the reference starts with.

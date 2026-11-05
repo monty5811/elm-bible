@@ -9,6 +9,7 @@ Parse and format Bible references in Elm.
 - Parse a reference from a string
 - Nicely format a reference to a string
 - Convert a reference to an encoded representation for sorting/comparing/storage
+- Look up books (`Bible.Book`): names, numbers, chapter and verse counts and the spellings the parser accepts
 
 The following reference formats can be parsed:
 
