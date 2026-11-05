@@ -87,7 +87,7 @@ The following formats should work:
 
 Book names can be written in full or abbreviated, in any case, with or without
 a trailing dot: `Psalm 23`, `Psalms 23`, `Ps. 23`, `1 Cor 13`, `I Cor 13`,
-`First Corinthians 13`, `Jn 3:16`. Any whitespace works between the parts, and
+`First Corinthians 13`, `Jhn 3:16`. Any whitespace works between the parts, and
 `-`, `–` and `—` all work as dashes.
 
 Text after the reference is ignored, so `John 3:16 (ESV)` is John 3:16.

@@ -23,7 +23,7 @@ The following reference formats can be parsed:
  - Genesis 1 - Exodus 5:20
 
 Book names can be written in full or abbreviated (`Psalms 23`, `Ps. 23`,
-`1 Cor 13`, `First Corinthians 13`, `Jn 3:16`), in any case.
+`1 Cor 13`, `First Corinthians 13`, `Jhn 3:16`), in any case.
 
 ## Examples
 

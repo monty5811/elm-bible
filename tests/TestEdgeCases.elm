@@ -75,25 +75,37 @@ suite =
             , fails "Gen 1:99999999999999999999" "Genesis 1 only has 31 verses"
             ]
         , describe "Abbreviations"
-            [ parses "Jn 3:16" "John 3:16"
-            , parses "Jhn 3:16" "John 3:16"
-            , parses "Mk 1" "Mark 1:1-45"
-            , parses "Lk 2:1" "Luke 2:1"
-            , parses "Mt 5:3" "Matthew 5:3"
-            , parses "Rm 8:28" "Romans 8:28"
-            , parses "Ex 20" "Exodus 20:1-26"
+            [ parses "Jhn 3:16" "John 3:16"
+            , parses "Joh 3:16" "John 3:16"
+            , parses "Mrk 1" "Mark 1:1-45"
+            , parses "Luk 2:1" "Luke 2:1"
+            , parses "Mat 5:3" "Matthew 5:3"
+            , parses "Exo 20" "Exodus 20:1-26"
             , parses "Pss 1" "Psalm 1:1-6"
             , parses "Qoh 1" "Ecclesiastes 1:1-18"
-            , parses "1 Jn 1:9" "1 John 1:9"
+            , parses "1 Jhn 1:9" "1 John 1:9"
             , parses "I John 1:9" "1 John 1:9"
             , parses "First John 1:9" "1 John 1:9"
             , parses "1st Cor 13" "1 Corinthians 13:1-13"
             , parses "2nd Tim 3:16" "2 Timothy 3:16"
             , parses "III John 2" "3 John 2"
             , parses "Phm 2" "Philemon 2"
-            , parses "Rv 22:21" "Revelation 22:21"
             , fails "Kings 1" "No reference found"
             , fails "Xyz 1" "No reference found"
+            ]
+        , describe "Two-letter abbreviations aren't recognised, except Ps"
+            [ parses "Ps 23" "Psalm 23:1-6"
+            , fails "Jn 3:16" "No reference found"
+            , fails "Mk 1" "No reference found"
+            , fails "Is 53" "No reference found"
+            , fails "Ex 20" "No reference found"
+            , fails "1 Jn 1:9" "No valid reference found"
+            , test "no alias is two letters long, except ps" <|
+                \() ->
+                    Internal.Parser.aliases
+                        |> List.map Tuple.first
+                        |> List.filter (\a -> String.length a == 2 && a /= "ps")
+                        |> Expect.equalLists []
             ]
         , describe "Case"
             [ parses "GEN 1:1" "Genesis 1:1"
