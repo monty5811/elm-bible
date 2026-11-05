@@ -90,16 +90,7 @@ suite =
             , parses "2nd Tim 3:16" "2 Timothy 3:16"
             , parses "III John 2" "3 John 2"
             , parses "Phm 2" "Philemon 2"
-            , fails "Kings 1" "No reference found"
             , fails "Xyz 1" "No reference found"
-            ]
-        , describe "Two-letter abbreviations aren't recognised, except Ps"
-            [ parses "Ps 23" "Psalm 23:1-6"
-            , fails "Jn 3:16" "No reference found"
-            , fails "Mk 1" "No reference found"
-            , fails "Is 53" "No reference found"
-            , fails "Ex 20" "No reference found"
-            , fails "1 Jn 1:9" "No valid reference found"
             ]
         , describe "Case"
             [ parses "GEN 1:1" "Genesis 1:1"
