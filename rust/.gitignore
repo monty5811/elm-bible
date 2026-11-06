@@ -1,0 +1,8 @@
+/target/
+/compat/elm-stuff/
+__pycache__/
+*.so
+*.pyd
+.venv/
+.pytest_cache/
+.hypothesis/

@@ -2,3 +2,5 @@ elm-stuff/
 node_modules/
 Doc/
 docs.json
+.venv/
+dist/

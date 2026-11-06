@@ -4,9 +4,17 @@ on:
   push:
     branches: [master]
   pull_request:
+  # release-rs.yml runs these checks on the tagged commit before publishing.
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
-  ci:
+  elm:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -37,3 +45,174 @@ jobs:
         run: |
           npx elm diff | tee elm-diff.txt
           { echo '### elm diff'; echo '```'; cat elm-diff.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+  rust:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: rustfmt
+        run: cargo fmt --check
+
+      - name: clippy
+        run: cargo clippy --all-targets --features python -- -D warnings
+
+      - name: cargo test
+        run: cargo test
+
+  python:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The wheel is abi3 for 3.11+: test the oldest and the newest.
+        python: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+          cache-dependency-glob: rust/pyproject.toml
+
+      - name: Build the wheel with maturin
+        run: uvx --from 'maturin>=1.8,<2' maturin build --release --manifest-path rust/Cargo.toml --out dist
+
+      - name: Install it
+        run: |
+          uv venv
+          uv pip install dist/*.whl --group rust/pyproject.toml:test
+
+      - name: Tables match the Elm source
+        run: python3 rust/scripts/gen_tables.py --check
+
+      - name: pytest (including the hypothesis properties)
+        run: .venv/bin/pytest rust/tests
+
+  # The sdist builds and passes the tests on its own, as pip would build it
+  # on a platform without a wheel.
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: rust/pyproject.toml
+
+      - name: Build the sdist
+        run: uvx --from 'maturin>=1.8,<2' maturin sdist --manifest-path rust/Cargo.toml --out dist
+
+      - name: Install it and run the tests outside the repo
+        run: |
+          uv venv "$RUNNER_TEMP/venv"
+          uv pip install --python "$RUNNER_TEMP/venv/bin/python" dist/*.tar.gz pytest hypothesis
+          cp -r rust/tests "$RUNNER_TEMP/tests"
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/venv/bin/pytest" -p no:cacheprovider tests --ignore tests/test_elm_bible_rs_tables.py --ignore tests/test_elm_bible_rs_version.py
+
+  # Elm against elm-bible-rs on the generated corpus (~510k cases), with the
+  # fixed seed and then a fresh one.
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: yarn
+
+      - name: Cache Elm tools and packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.elm
+          key: elm-parity-${{ hashFiles('elm-tooling.json', 'elm.json', 'rust/compat/elm.json') }}
+
+      - run: yarn install --frozen-lockfile
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: rust/pyproject.toml
+
+      - name: Build and install elm-bible-rs
+        run: |
+          uvx --from 'maturin>=1.8,<2' maturin build --release --manifest-path rust/Cargo.toml --out dist
+          uv venv
+          uv pip install dist/*.whl
+
+      - name: Full corpus, fixed seed
+        run: .venv/bin/python rust/compat/corpus.py diff
+
+      - name: Full corpus, fresh seed
+        run: |
+          seed=$(date +%s)
+          echo "Seed: $seed"
+          if ! .venv/bin/python rust/compat/corpus.py diff --seed "$seed"; then
+            echo "::error::Elm and elm-bible-rs disagree with --seed $seed"
+            exit 1
+          fi
+
+  # Informational: which answers the PR's src/ changes compared with the
+  # latest release. Never fails the build.
+  behaviour-changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: yarn
+
+      - name: Cache Elm tools and packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.elm
+          key: elm-parity-${{ hashFiles('elm-tooling.json', 'elm.json', 'rust/compat/elm.json') }}
+
+      - run: yarn install --frozen-lockfile
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Summarise behaviour changes since the latest release
+        run: |
+          tag=$(git tag --list --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1)
+          echo "Latest release: $tag"
+          python3 rust/compat/corpus.py changes --from "monty5811/elm-bible@$tag" --markdown "$GITHUB_STEP_SUMMARY"

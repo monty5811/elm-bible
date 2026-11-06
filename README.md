@@ -41,6 +41,14 @@ Book names can be written in full or abbreviated (`Psalms 23`, `Ps. 23`,
 
 ```
 
+## Python and Rust
+
+[elm-bible-rs](rust/) is a Rust port with Python bindings (`pip install
+elm-bible-rs`) that gives the same answers and error messages as this
+package, so a Python backend can agree with an Elm frontend. elm-bible-rs
+X.Y.Z matches elm-bible X.Y.Z. It lives in `rust/`, and CI checks the two
+agree.
+
 ## Contributing
 
 Contributions welcome, please [open an issue](https://github.com/monty5811/elm-bible/issues/new) to get started.
@@ -52,3 +60,6 @@ yarn format:check     # elm-format --validate
 yarn docs             # elm make --docs=docs.json
 yarn diff             # elm diff against the latest published version
 ```
+
+A change to `src/` must keep `rust/` passing, in the same PR. See
+[rust/COMPAT.md](rust/COMPAT.md#changing-behaviour).

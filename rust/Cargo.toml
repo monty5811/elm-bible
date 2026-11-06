@@ -1,0 +1,34 @@
+[package]
+name = "elm-bible-rs"
+version = "2.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+description = "Parse, validate, format and encode English Bible references (a port of the elm-bible Elm package), with Python bindings"
+keywords = ["bible", "scripture", "reference", "parser"]
+categories = ["parser-implementations", "text-processing"]
+readme = "README.md"
+repository = "https://github.com/monty5811/elm-bible"
+# X.Y.Z matches the Elm package elm-bible X.Y.Z (README.md, "Versions").
+# Released to PyPI only, from rs-X.Y.Z tags; not published to crates.io.
+publish = false
+
+[lib]
+name = "elm_bible_rs"
+# rlib for Rust users and `cargo test`, cdylib for the Python extension.
+crate-type = ["rlib", "cdylib"]
+
+[features]
+# The Python bindings. maturin switches this on (pyproject.toml), along with
+# pyo3/extension-module, so plain `cargo test` builds a pure-Rust library.
+python = ["dep:pyo3"]
+
+[dependencies]
+pyo3 = { version = "0.30.1", features = ["abi3-py311"], optional = true }
+
+[dev-dependencies]
+proptest = "1"
+
+[profile.release]
+lto = true
+codegen-units = 1

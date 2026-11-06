@@ -1,0 +1,12 @@
+# Elm installs this package from GitHub's zipball of the release tag, which
+# leaves out everything marked export-ignore. Elm users only need elm.json,
+# src/, README.md and LICENSE.
+rust/ export-ignore
+tests/ export-ignore
+.github/ export-ignore
+package.json export-ignore
+yarn.lock export-ignore
+elm-tooling.json export-ignore
+.nvmrc export-ignore
+.gitattributes export-ignore
+.gitignore export-ignore

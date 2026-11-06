@@ -1,0 +1,106 @@
+# Release elm-bible-rs (rust/) to PyPI. Triggered only by rs-X.Y.Z tags, so the
+# Elm package's bare X.Y.Z tags never start it. The crate is not published to
+# crates.io.
+name: Release elm-bible-rs
+
+on:
+  push:
+    tags: ["rs-*"]
+
+permissions:
+  contents: read
+
+jobs:
+  # The full CI (Elm, Rust, Python, sdist and parity) on the tagged commit.
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: The tag names the version in pyproject.toml and Cargo.toml
+        run: |
+          python3 - "$GITHUB_REF_NAME" <<'EOF'
+          import re, sys, tomllib
+          tag = sys.argv[1]
+          python = tomllib.load(open("rust/pyproject.toml", "rb"))["project"]["version"]
+          cargo = tomllib.load(open("rust/Cargo.toml", "rb"))["package"]["version"]
+          if tag != f"rs-{python}":
+              sys.exit(f"tag {tag} doesn't match rust/pyproject.toml's version {python}")
+          if re.sub(r"\.post\d+$", "", python) != cargo:
+              sys.exit(f"pyproject.toml says {python} but Cargo.toml says {cargo}")
+          EOF
+
+  wheels:
+    needs: check-version
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: x86_64, smoke-test: true }
+          - { os: ubuntu-latest, target: aarch64, smoke-test: false }
+          - { os: macos-latest, target: x86_64, smoke-test: false }
+          - { os: macos-latest, target: aarch64, smoke-test: true }
+    steps:
+      - uses: actions/checkout@v5
+
+      # pyo3's abi3-py311 feature (Cargo.toml) makes these abi3 wheels.
+      - uses: PyO3/maturin-action@v1
+        with:
+          working-directory: rust
+          target: ${{ matrix.target }}
+          manylinux: auto
+          args: --release --out dist
+
+      - uses: actions/setup-python@v5
+        if: matrix.smoke-test
+        with:
+          python-version: "3.12"
+
+      - name: Smoke test
+        if: matrix.smoke-test
+        run: |
+          python3 -m pip install rust/dist/*.whl
+          python3 -c "import elm_bible_rs; assert str(elm_bible_rs.parse('Ps 23')) == 'Psalm 23:1-6'"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}-${{ matrix.target }}
+          path: rust/dist
+
+  sdist:
+    needs: check-version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: PyO3/maturin-action@v1
+        with:
+          working-directory: rust
+          command: sdist
+          args: --out dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: rust/dist
+
+  publish:
+    needs: [ci, wheels, sdist]
+    runs-on: ubuntu-latest
+    # Trusted publishing: configure this repo, this workflow file and the
+    # "pypi" environment as a trusted publisher for elm-bible-rs on PyPI.
+    environment:
+      name: pypi
+      url: https://pypi.org/project/elm-bible-rs/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - uses: pypa/gh-action-pypi-publish@release/v1

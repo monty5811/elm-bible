@@ -1,0 +1,45 @@
+[project]
+name = "elm-bible-rs"
+# X.Y.Z matches the Elm package elm-bible X.Y.Z; keep it equal to Cargo.toml's.
+version = "2.1.0"
+description = "Parse, validate, format and encode English Bible references, in Rust. Compatible with the elm-bible Elm package."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+keywords = ["bible", "scripture", "reference", "parser"]
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Typing :: Typed",
+]
+# No runtime dependencies: the wheel is self-contained.
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/monty5811/elm-bible"
+Documentation = "https://github.com/monty5811/elm-bible/tree/master/rust#readme"
+
+[dependency-groups]
+# For developing and CI only; not part of the published package.
+test = ["pytest>=8", "hypothesis>=6"]
+
+[build-system]
+requires = ["maturin>=1.8,<2"]
+build-backend = "maturin"
+
+[tool.maturin]
+python-source = "python"
+module-name = "elm_bible_rs._elm_bible_rs"
+features = ["python", "pyo3/extension-module"]
+# The Elm differential harness and its corpus generator stay out of the sdist.
+exclude = ["compat/**"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+extend-select = ["I"]
